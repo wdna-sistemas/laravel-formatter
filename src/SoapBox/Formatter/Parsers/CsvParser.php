@@ -29,13 +29,19 @@ class CsvParser extends Parser {
 			for ($i = 1; $i < count($temp); ++$i) {
 				$row = [];
 				for ($j = 0; $j < count($headings); ++$j) {
-					$row[$headings[$j]] = $temp[$i][$j];
+				    if (isset($temp[$i][$j])) {
+                        $row[$headings[$j]] = $temp[$i][$j];
+                    }
 				}
+
 				$expanded = [];
 				foreach ($row as $key => $value) {
 					ArrayHelpers::set($expanded, $key, $value);
 				}
-				$result[] = $expanded;
+
+				if ($expanded) {
+                    $result[] = $expanded;
+                }
 			}
 		}
 
