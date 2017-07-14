@@ -98,8 +98,7 @@ abstract class Parser {
                 $namespaceExploded = explode($key, ':');
                 $haveNamespace = count($namespaceExploded) === 2;
 
-                $keyNamespace = $haveNamespace ? $namespaceExploded[0] : null;
-                $key = $haveNamespace ? $namespaceExploded[1] : $key;
+                $keyNamespace = $haveNamespace && isset($namespaces[$namespaceExploded[0]]) ? $namespaces[$namespaceExploded[0]] : null;
 
                 $structure->addChild($key, $value, $keyNamespace);
             }
