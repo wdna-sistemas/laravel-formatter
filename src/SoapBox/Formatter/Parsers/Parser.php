@@ -89,7 +89,7 @@ abstract class Parser {
 
                 // recursive call if value is not empty
                 if (!empty($value)) {
-                    $this->xmlify($value, $node, $key);
+                    $this->xmlify($value, $node, $key, $namespaces);
                 }
             } else {
                 // add single node.
