@@ -95,7 +95,7 @@ abstract class Parser {
                 // add single node.
                 $value = htmlspecialchars(html_entity_decode($value, ENT_QUOTES, 'UTF-8'), ENT_QUOTES, "UTF-8");
 
-                $namespaceExploded = explode($key, ':');
+                $namespaceExploded = explode(':', $key);
                 $haveNamespace = count($namespaceExploded) === 2;
 
                 $keyNamespace = $haveNamespace && isset($namespaces[$namespaceExploded[0]]) ? $namespaces[$namespaceExploded[0]] : null;
