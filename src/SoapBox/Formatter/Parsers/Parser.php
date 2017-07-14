@@ -80,9 +80,6 @@ abstract class Parser {
 				$key = (Str::singular($basenode) != $basenode) ? Str::singular($basenode) : 'item';
 			}
 
-			// replace anything not alpha numeric
-			$key = preg_replace('/[^a-z_\-0-9]/i', '', $key);
-
 			// if there is another array found recrusively call this function
 			if (is_array($value) or is_object($value)) {
 				$node = $structure->addChild($key);
