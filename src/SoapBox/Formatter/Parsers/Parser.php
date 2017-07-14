@@ -12,153 +12,162 @@ use SoapBox\Formatter\ArrayHelpers;
  */
 abstract class Parser {
 
-	/**
-	 * Constructor is used to initialize the parser
-	 *
-	 * @param mixed $data The input sharing a type with the parser
-	 */
-	abstract public function __construct($data);
+    /**
+     * Constructor is used to initialize the parser
+     *
+     * @param mixed $data The input sharing a type with the parser
+     */
+    abstract public function __construct($data);
 
-	/**
-	 * Used to retrieve a (php) array representation of the data encapsulated within our Parser.
-	 *
-	 * @return array
-	 */
-	abstract public function toArray();
+    /**
+     * Used to retrieve a (php) array representation of the data encapsulated within our Parser.
+     *
+     * @return array
+     */
+    abstract public function toArray();
 
-	/**
-	 * Return a json representation of the data stored in the parser
-	 *
-	 * @return string A json string representing the encapsulated data
-	 */
-	public function toJson() {
-		return json_encode($this->toArray());
-	}
+    /**
+     * Return a json representation of the data stored in the parser
+     *
+     * @return string A json string representing the encapsulated data
+     */
+    public function toJson() {
+        return json_encode($this->toArray());
+    }
 
-	/**
-	 * Return a yaml representation of the data stored in the parser
-	 *
-	 * @return string A yaml string representing the encapsulated data
-	 */
-	public function toYaml() {
-		return Spyc::YAMLDump($this->toArray());
-	}
+    /**
+     * Return a yaml representation of the data stored in the parser
+     *
+     * @return string A yaml string representing the encapsulated data
+     */
+    public function toYaml() {
+        return Spyc::YAMLDump($this->toArray());
+    }
 
-	/**
-	 * To XML conversion
-	 *
-	 * @param   mixed        $data
-	 * @param   null         $structure
-	 * @param   null|string  $basenode
-	 * @return  string
-	 */
-	private function xmlify($data, $structure = null, $basenode = 'xml') {
-		// turn off compatibility mode as simple xml throws a wobbly if you don't.
-		if (ini_get('zend.ze1_compatibility_mode') == 1) {
-			ini_set('zend.ze1_compatibility_mode', 0);
-		}
+    /**
+     * To XML conversion
+     *
+     * @param   mixed        $data
+     * @param   null         $structure
+     * @param   null|string  $basenode
+     * @return  string
+     */
+    private function xmlify($data, $structure = null, $basenode = 'xml', $namespaces = []) {
+        // turn off compatibility mode as simple xml throws a wobbly if you don't.
+        if (ini_get('zend.ze1_compatibility_mode') == 1) {
+            ini_set('zend.ze1_compatibility_mode', 0);
+        }
 
-		if ($structure == null) {
-			$structure = simplexml_load_string("<?xml version='1.0' encoding='utf-8'?><$basenode />");
-		}
+        if ($structure == null) {
+            $structure = simplexml_load_string("<?xml version='1.0' encoding='utf-8'?><$basenode />");
+            foreach ($namespaces as $key => $namespace) {
+                $structure->registerXPathNamespace($key, $namespace);
+            }
+        }
 
-		// Force it to be something useful
-		if (!is_array($data) && !is_object($data)) {
-			$data = (array) $data;
-		}
+        // Force it to be something useful
+        if (!is_array($data) && !is_object($data)) {
+            $data = (array) $data;
+        }
 
-		foreach ($data as $key => $value) {
-			// convert our booleans to 0/1 integer values so they are
-			// not converted to blanks.
-			if (is_bool($value)) {
-				$value = (int) $value;
-			}
+        foreach ($data as $key => $value) {
+            // convert our booleans to 0/1 integer values so they are
+            // not converted to blanks.
+            if (is_bool($value)) {
+                $value = (int) $value;
+            }
 
-			// no numeric keys in our xml please!
-			if (is_numeric($key)) {
-				// make string key...
-				$key = (Str::singular($basenode) != $basenode) ? Str::singular($basenode) : 'item';
-			}
+            // no numeric keys in our xml please!
+            if (is_numeric($key)) {
+                // make string key...
+                $key = (Str::singular($basenode) != $basenode) ? Str::singular($basenode) : 'item';
+            }
 
-			// if there is another array found recrusively call this function
-			if (is_array($value) or is_object($value)) {
-				$node = $structure->addChild($key);
+            // if there is another array found recrusively call this function
+            if (is_array($value) or is_object($value)) {
+                $node = $structure->addChild($key);
 
-				// recursive call if value is not empty
-				if (!empty($value)) {
-					$this->xmlify($value, $node, $key);
-				}
-			} else {
-				// add single node.
-				$value = htmlspecialchars(html_entity_decode($value, ENT_QUOTES, 'UTF-8'), ENT_QUOTES, "UTF-8");
+                // recursive call if value is not empty
+                if (!empty($value)) {
+                    $this->xmlify($value, $node, $key);
+                }
+            } else {
+                // add single node.
+                $value = htmlspecialchars(html_entity_decode($value, ENT_QUOTES, 'UTF-8'), ENT_QUOTES, "UTF-8");
 
-				$structure->addChild($key, $value);
-			}
-		}
+                $namespaceExploded = explode($key, ':');
+                $haveNamespace = count($namespaceExploded) === 2;
 
-		// pass back as string. or simple xml object if you want!
-		return $structure->asXML();
-	}
+                $keyNamespace = $haveNamespace ? $namespaceExploded[0] : null;
+                $key = $haveNamespace ? $namespaceExploded[1] : $key;
 
-	/**
-	 * Return an xml representation of the data stored in the parser
-	 *
-	 * @param string $baseNode
-	 *
-	 * @return string An xml string representing the encapsulated data
-	 */
-	public function toXml($baseNode = 'xml') {
-		return $this->xmlify($this->toArray(), null, $baseNode);
-	}
+                $structure->addChild($key, $value, $keyNamespace);
+            }
+        }
 
-	private function csvify($data) {
-		$results = [];
-		foreach ($data as $row) {
-			$results[] = array_values(ArrayHelpers::dot($row));
-		}
-		return $results;
-	}
+        // pass back as string. or simple xml object if you want!
+        return $structure->asXML();
+    }
 
-	/**
-	 * Ported from laravel-formatter
-	 * https://github.com/SoapBox/laravel-formatter
-	 *
-	 * @author  Daniel Berry <daniel@danielberry.me>
-	 * @license MIT License (see LICENSE.readme included in the bundle)
-	 *
-	 * Return a csv representation of the data stored in the parser
-	 *
-	 * @return string An csv string representing the encapsulated data
-	 */
-	public function toCsv($newline = "\n", $delimiter = ",", $enclosure = '"', $escape = "\\") {
-		$data = $this->toArray();
+    /**
+     * Return an xml representation of the data stored in the parser
+     *
+     * @param string $baseNode
+     *
+     * @return string An xml string representing the encapsulated data
+     */
+    public function toXml($baseNode = 'xml', $namespaces = []) {
+        return $this->xmlify($this->toArray(), null, $baseNode, $namespaces);
+    }
 
-		if (ArrayHelpers::isAssociative($data) || !is_array($data[0])) {
-			$data = [$data];
-		}
+    private function csvify($data) {
+        $results = [];
+        foreach ($data as $row) {
+            $results[] = array_values(ArrayHelpers::dot($row));
+        }
+        return $results;
+    }
 
-		$escaper = function($items) use($enclosure, $escape) {
-			return array_map(function($item) use($enclosure, $escape) {
-				return str_replace($enclosure, $escape.$enclosure, $item);
-			}, $items);
-		};
+    /**
+     * Ported from laravel-formatter
+     * https://github.com/SoapBox/laravel-formatter
+     *
+     * @author  Daniel Berry <daniel@danielberry.me>
+     * @license MIT License (see LICENSE.readme included in the bundle)
+     *
+     * Return a csv representation of the data stored in the parser
+     *
+     * @return string An csv string representing the encapsulated data
+     */
+    public function toCsv($newline = "\n", $delimiter = ",", $enclosure = '"', $escape = "\\") {
+        $data = $this->toArray();
 
-		$headings = ArrayHelpers::dotKeys($data[0]);
-		$result = [];
+        if (ArrayHelpers::isAssociative($data) || !is_array($data[0])) {
+            $data = [$data];
+        }
 
-		foreach ($data as $row) {
-			$result[] = array_values(ArrayHelpers::dot($row));
-		}
+        $escaper = function($items) use($enclosure, $escape) {
+            return array_map(function($item) use($enclosure, $escape) {
+                return str_replace($enclosure, $escape.$enclosure, $item);
+            }, $items);
+        };
 
-		$data = $result;
+        $headings = ArrayHelpers::dotKeys($data[0]);
+        $result = [];
 
-		$output = $enclosure.implode($enclosure.$delimiter.$enclosure, $escaper($headings)).$enclosure.$newline;
+        foreach ($data as $row) {
+            $result[] = array_values(ArrayHelpers::dot($row));
+        }
 
-		foreach ($data as $row)
-		{
-			$output .= $enclosure.implode($enclosure.$delimiter.$enclosure, $escaper((array) $row)).$enclosure.$newline;
-		}
+        $data = $result;
 
-		return rtrim($output, $newline);
-	}
+        $output = $enclosure.implode($enclosure.$delimiter.$enclosure, $escaper($headings)).$enclosure.$newline;
+
+        foreach ($data as $row)
+        {
+            $output .= $enclosure.implode($enclosure.$delimiter.$enclosure, $escaper((array) $row)).$enclosure.$newline;
+        }
+
+        return rtrim($output, $newline);
+    }
 }
