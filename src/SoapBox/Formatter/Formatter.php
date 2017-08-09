@@ -71,7 +71,7 @@ class Formatter {
         return $this->parser->toYaml();
     }
 
-    public function toXml($baseNode = 'xml', $namespaces) {
+    public function toXml($baseNode = 'xml', $namespaces = []) {
         return $this->parser->toXml($baseNode, $namespaces);
     }
 
