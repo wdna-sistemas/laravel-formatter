@@ -1,8 +1,8 @@
 <?php namespace SoapBox\Formatter\Parsers;
 
-use Spyc;
 use Illuminate\Support\Str;
 use SoapBox\Formatter\ArrayHelpers;
+use Spyc;
 
 /**
  * Parser Interface
@@ -145,26 +145,61 @@ abstract class Parser {
             $data = [$data];
         }
 
-        $escaper = function($items) use($enclosure, $escape) {
-            return array_map(function($item) use($enclosure, $escape) {
+        $haveGaps = false;
+        $headings = [];
+        $csvValues = [];
+        $dataDotNotation = [];
+
+        $escaper = function($items) use ($enclosure, $escape) {
+            return array_map(function($item) use ($enclosure, $escape) {
                 return str_replace($enclosure, $escape.$enclosure, $item);
             }, $items);
         };
 
-        $headings = ArrayHelpers::dotKeys($data[0]);
-        $result = [];
-
         foreach ($data as $row) {
-            $result[] = array_values(ArrayHelpers::dot($row));
+            $rowDotNotation = ArrayHelpers::dot($row);
+            $initialCount = count($headings);
+            $headings = array_unique(array_merge($headings, array_keys($rowDotNotation)));
+            $afterMergeCount = count($headings);
+            if ($initialCount !== 0 && $initialCount !== $afterMergeCount) {
+                $haveGaps = true;
+            }
+            $dataDotNotation[] = $rowDotNotation;
         }
 
-        $data = $result;
+        $fillGaps = function($items) use ($headings) {
+            return array_map(function($item) use ($headings) {
+                $transformed = [];
 
-        $output = $enclosure.implode($enclosure.$delimiter.$enclosure, $escaper($headings)).$enclosure.$newline;
+                foreach ($headings as $headingField) {
+                    if (isset($item[$headingField])) {
+                        $transformed[$headingField] = $item[$headingField];
+                    } else {
+                        $transformed[$headingField] = null;
+                    }
+                }
 
-        foreach ($data as $row)
+                return $transformed;
+            }, $items);
+        };
+
+        if ($haveGaps) {
+            $dataDotNotation = $fillGaps($dataDotNotation);
+        }
+
+        foreach ($dataDotNotation as $row) {
+            $csvValues[] = array_values($row);
+        }
+
+        $output = $enclosure
+            .implode($enclosure.$delimiter.$enclosure, $escaper($headings))
+            .$enclosure.$newline;
+
+        foreach ($csvValues as $row)
         {
-            $output .= $enclosure.implode($enclosure.$delimiter.$enclosure, $escaper((array) $row)).$enclosure.$newline;
+            $output .= $enclosure
+                .implode($enclosure.$delimiter.$enclosure, $escaper((array) $row))
+                .$enclosure.$newline;
         }
 
         return rtrim($output, $newline);
