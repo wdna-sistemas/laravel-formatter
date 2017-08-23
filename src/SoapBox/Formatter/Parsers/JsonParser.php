@@ -5,11 +5,11 @@ class JsonParser extends Parser {
 	private $json;
 
 	public function __construct($data) {
-		$this->json = json_decode(trim($data));
+		$this->json = json_decode(trim($data), true);
 	}
 
 	public function toArray() {
-		return (array) $this->json;
+		return $this->json;
 	}
 
 }
